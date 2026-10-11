@@ -9,7 +9,8 @@ from langchain_core.documents import Document
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.vectorstores import VectorStore
+
+from app.retrieval import Retriever
 
 SYSTEM_PROMPT = """You answer questions using only the numbered context excerpts from the
 user's documents.
@@ -73,16 +74,16 @@ def format_context(docs: list[Document]) -> str:
 
 class RAG:
     def __init__(
-        self, vectorstore: VectorStore, llm: BaseChatModel, top_k: int = 5, model_name: str = ""
+        self, retriever: Retriever, llm: BaseChatModel, top_k: int = 5, model_name: str = ""
     ):
-        self.vectorstore = vectorstore
+        self.retriever = retriever
         self.llm = llm
         self.top_k = top_k
         self.model_name = model_name
         self.chain = PROMPT | llm  # LangChain Expression Language: prompt -> model
 
     def retrieve(self, question: str) -> list[tuple[Document, float]]:
-        return self.vectorstore.similarity_search_with_score(question, k=self.top_k)
+        return self.retriever.search(question, k=self.top_k)
 
     def ask(self, question: str) -> Answer:
         hits = self.retrieve(question)

@@ -33,5 +33,7 @@ class Settings(BaseSettings):
     chunk_size: int = 800
     chunk_overlap: int = 120
     top_k: int = 5
+    hybrid: bool = True  # dense + BM25 with RRF fusion; False = dense vectors only
+    rrf_k: int = 60
     upload_dir: str = "./storage/uploads"
     max_upload_mb: int = 20

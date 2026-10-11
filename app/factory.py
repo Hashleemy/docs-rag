@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage
 from app.config import Settings
 from app.ingest import IMAGE_PROMPT, Describer
 from app.rag import message_text
+from app.retrieval import DenseRetriever, HybridRetriever, Retriever
 
 
 class FastEmbedEmbeddings(Embeddings):
@@ -55,6 +56,12 @@ def build_vectorstore(settings: Settings, embeddings: Embeddings):
         persist_directory=settings.chroma_dir,
         collection_metadata={"hnsw:space": "cosine"},
     )
+
+
+def build_retriever(settings: Settings, vectorstore) -> Retriever:
+    if settings.hybrid:
+        return HybridRetriever(vectorstore, rrf_k=settings.rrf_k)
+    return DenseRetriever(vectorstore)
 
 
 def build_llm(settings: Settings) -> BaseChatModel:

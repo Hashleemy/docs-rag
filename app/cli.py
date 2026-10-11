@@ -14,7 +14,13 @@ from pathlib import Path
 
 from app.config import Settings
 from app.evaluate import evaluate
-from app.factory import build_embeddings, build_llm, build_vectorstore, make_describer
+from app.factory import (
+    build_embeddings,
+    build_llm,
+    build_retriever,
+    build_vectorstore,
+    make_describer,
+)
 from app.ingest import IMAGE_SUFFIXES, collect_files, ingest_paths, remove_source
 from app.observability import configure_logging
 from app.rag import RAG
@@ -43,7 +49,8 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
 
 def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
     vectorstore = build_vectorstore(settings, build_embeddings(settings))
-    rag = RAG(vectorstore, build_llm(settings), settings.top_k, settings.llm_model)
+    retriever = build_retriever(settings, vectorstore)
+    rag = RAG(retriever, build_llm(settings), settings.top_k, settings.llm_model)
     result = rag.ask(args.question)
     print(result.answer)
     print("\nSources:")
@@ -74,17 +81,18 @@ def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
     """Rank-aware retrieval eval: hit@1, hit@k and MRR against a golden question set."""
     golden = json.loads(Path(args.golden).read_text(encoding="utf-8"))
     vectorstore = build_vectorstore(settings, build_embeddings(settings))
+    retriever = build_retriever(settings, vectorstore)
 
-    def retriever(question: str, k: int) -> list:
-        return vectorstore.similarity_search(question, k=k)
-
-    report = evaluate(golden, retriever, k=settings.top_k)
+    report = evaluate(
+        golden, lambda q, k: [doc for doc, _ in retriever.search(q, k)], k=settings.top_k
+    )
     for r in report.results:
         mark = f"rank {r.rank}" if r.rank is not None else "MISS  "
         print(f"  {mark:<7} {r.question}")
     k = report.k
+    mode = "hybrid" if settings.hybrid else "dense"
     print(
-        f"\nhit@1: {report.hit_rate(1):.0%}   hit@{k}: {report.hit_rate(k):.0%}   "
+        f"\n[{mode}] hit@1: {report.hit_rate(1):.0%}   hit@{k}: {report.hit_rate(k):.0%}   "
         f"MRR: {report.mrr():.2f}   ({len(golden)} questions, minimum hit@{k} "
         f"{args.min_hit_rate:.0%})"
     )

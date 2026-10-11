@@ -17,7 +17,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import Settings
-from app.factory import build_embeddings, build_llm, build_vectorstore, make_describer
+from app.factory import (
+    build_embeddings,
+    build_llm,
+    build_retriever,
+    build_vectorstore,
+    make_describer,
+)
 from app.ingest import ALLOWED_SUFFIXES, ingest_paths, remove_source
 from app.observability import add_request_logging, configure_logging
 from app.rag import RAG
@@ -42,8 +48,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     embeddings = build_embeddings(settings)
     vectorstore = build_vectorstore(settings, embeddings)
+    retriever = build_retriever(settings, vectorstore)
     llm = build_llm(settings)
-    rag = RAG(vectorstore, llm, top_k=settings.top_k, model_name=settings.llm_model)
+    rag = RAG(retriever, llm, top_k=settings.top_k, model_name=settings.llm_model)
     describer = make_describer(llm)
     upload_dir = Path(settings.upload_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -60,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": "ok",
             "model": settings.llm_model,
             "embedding_model": settings.embedding_model,
+            "retrieval": "hybrid" if settings.hybrid else "dense",
             "chunks": vectorstore._collection.count(),
         }
 
@@ -78,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         upload.unlink(missing_ok=True)
         if not removed and not had_upload:
             raise HTTPException(status_code=404, detail=f"unknown source: {name}")
+        retriever.refresh()
         log.info("removed", extra={"data": {"file": name, "chunks": removed}})
         return {"source": name, "chunks_removed": removed}
 
@@ -104,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             chunk_overlap=settings.chunk_overlap,
             describer=describer,
         )
+        retriever.refresh()
         return {"files": report.files, "skipped": report.skipped, "chunks": report.chunks}
 
     @app.post("/api/ask")
