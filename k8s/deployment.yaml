@@ -1,0 +1,58 @@
+# Local Kubernetes (Docker Desktop, kind, or minikube):
+#   kubectl create secret generic docs-rag-secrets --from-literal=ANTHROPIC_API_KEY=sk-ant-...
+#   kubectl apply -f k8s/deployment.yaml
+#   kubectl get pods -w          # wait for 1/1 Running
+#   open http://localhost:8000
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs-rag
+  labels: { app: docs-rag }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: docs-rag }
+  template:
+    metadata:
+      labels: { app: docs-rag }
+    spec:
+      containers:
+        - name: app
+          image: docs-rag:local          # or ghcr.io/<your-user>/docs-rag:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef: { name: docs-rag-secrets, key: ANTHROPIC_API_KEY }
+            - name: LLM_MODEL
+              value: claude-opus-5-5
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 8000 }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "1.5Gi" }
+          volumeMounts:
+            - name: storage
+              mountPath: /app/storage
+      volumes:
+        - name: storage
+          emptyDir: {}                   # swap for a PersistentVolumeClaim to keep the index across restarts
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docs-rag
+spec:
+  type: LoadBalancer                     # Docker Desktop maps this to localhost:8000
+  selector: { app: docs-rag }
+  ports:
+    - port: 8000
+      targetPort: 8000

@@ -1,0 +1,15 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.45; }
+body { margin: 0; }
+.wrap { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; }
+header h1 { margin: 0 0 4px; }
+.muted { opacity: 0.65; font-size: 0.9em; }
+.card { border: 1px solid rgba(128,128,128,0.35); border-radius: 10px; padding: 16px 18px; margin: 16px 0; }
+.card h2 { margin: 0 0 10px; font-size: 1.1em; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+textarea { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; border-radius: 8px; border: 1px solid rgba(128,128,128,0.5); }
+button { margin-top: 8px; padding: 8px 18px; font: inherit; border-radius: 8px; border: 0; background: #2563eb; color: white; cursor: pointer; }
+button:disabled { opacity: 0.45; cursor: default; }
+.status { font-style: italic; }
+.answer { white-space: pre-wrap; font-size: 1.05em; }
+.snippet { opacity: 0.75; font-size: 0.85em; margin: 2px 0 8px; white-space: pre-wrap; }
+.sources { margin: 10px 0 0; padding-left: 18px; }

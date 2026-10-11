@@ -1,0 +1,10 @@
+[
+  {"question": "What are the four functions of the AI RMF Core?", "expected_source": "NIST.AI.100-1.pdf"},
+  {"question": "What characteristics make an AI system trustworthy?", "expected_source": "NIST.AI.100-1.pdf"},
+  {"question": "Who is the intended audience of the AI Risk Management Framework?", "expected_source": "NIST.AI.100-1.pdf"},
+  {"question": "How does the framework define risk?", "expected_source": "NIST.AI.100-1.pdf"},
+  {"question": "What does the GOVERN function cover?", "expected_source": "NIST.AI.100-1.pdf"},
+  {"question": "How do I start the API server locally?", "expected_source": "README.md"},
+  {"question": "Which file types can be ingested?", "expected_source": "README.md"},
+  {"question": "How are re-ingested files kept from duplicating chunks?", "expected_source": "README.md"}
+]
