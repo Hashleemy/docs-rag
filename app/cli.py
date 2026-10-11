@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from app.config import Settings
+from app.evaluate import evaluate
 from app.factory import build_embeddings, build_llm, build_vectorstore, make_describer
 from app.ingest import IMAGE_SUFFIXES, collect_files, ingest_paths
 from app.observability import configure_logging
@@ -58,25 +59,24 @@ def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
-    """Retrieval hit rate: does the expected document (and page) show up in the top k?"""
+    """Rank-aware retrieval eval: hit@1, hit@k and MRR against a golden question set."""
     golden = json.loads(Path(args.golden).read_text(encoding="utf-8"))
     vectorstore = build_vectorstore(settings, build_embeddings(settings))
-    hits = 0
-    for item in golden:
-        results = vectorstore.similarity_search(item["question"], k=settings.top_k)
-        found = any(
-            d.metadata.get("source") == item["expected_source"]
-            and (item.get("expected_page") in (None, d.metadata.get("page")))
-            for d in results
-        )
-        hits += int(found)
-        print(f"  {'HIT ' if found else 'MISS'}  {item['question']}")
-    rate = hits / len(golden) if golden else 0.0
+
+    def retriever(question: str, k: int) -> list:
+        return vectorstore.similarity_search(question, k=k)
+
+    report = evaluate(golden, retriever, k=settings.top_k)
+    for r in report.results:
+        mark = f"rank {r.rank}" if r.rank is not None else "MISS  "
+        print(f"  {mark:<7} {r.question}")
+    k = report.k
     print(
-        f"\nretrieval hit@{settings.top_k}: {hits}/{len(golden)} = {rate:.0%} "
-        f"(minimum {args.min_hit_rate:.0%})"
+        f"\nhit@1: {report.hit_rate(1):.0%}   hit@{k}: {report.hit_rate(k):.0%}   "
+        f"MRR: {report.mrr():.2f}   ({len(golden)} questions, minimum hit@{k} "
+        f"{args.min_hit_rate:.0%})"
     )
-    return 0 if rate >= args.min_hit_rate else 1
+    return 0 if report.hit_rate(k) >= args.min_hit_rate else 1
 
 
 def main(argv: list[str] | None = None) -> int:

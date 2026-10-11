@@ -1,10 +1,16 @@
 [
-  {"question": "What are the four functions of the AI RMF Core?", "expected_source": "NIST.AI.100-1.pdf"},
-  {"question": "What characteristics make an AI system trustworthy?", "expected_source": "NIST.AI.100-1.pdf"},
-  {"question": "Who is the intended audience of the AI Risk Management Framework?", "expected_source": "NIST.AI.100-1.pdf"},
-  {"question": "How does the framework define risk?", "expected_source": "NIST.AI.100-1.pdf"},
-  {"question": "What does the GOVERN function cover?", "expected_source": "NIST.AI.100-1.pdf"},
-  {"question": "How do I start the API server locally?", "expected_source": "README.md"},
+  {"question": "What are the four functions of the AI RMF Core?", "expected_source": "NIST.AI.100-1.pdf", "expected_pages": [5, 8, 25]},
+  {"question": "What characteristics make an AI system trustworthy?", "expected_source": "NIST.AI.100-1.pdf", "expected_pages": [8, 17]},
+  {"question": "How does the AI Risk Management Framework define risk?", "expected_source": "NIST.AI.100-1.pdf", "expected_pages": [9]},
+  {"question": "Who is the intended audience of the AI Risk Management Framework?", "expected_source": "NIST.AI.100-1.pdf", "expected_pages": [7, 14]},
+  {"question": "Which risks are unique to or exacerbated by generative AI?", "expected_source": "NIST.AI.600-1.pdf", "expected_pages": [4, 5, 6, 7]},
+  {"question": "What does the generative AI profile say about confabulation?", "expected_source": "NIST.AI.600-1.pdf", "expected_pages": [7, 8, 10]},
+  {"question": "What are the risks of generative models lowering barriers to CBRN weapons information?", "expected_source": "NIST.AI.600-1.pdf", "expected_pages": [7, 8, 9]},
+  {"question": "How can organizations govern third-party generative AI models they did not train themselves?", "expected_source": "NIST.AI.600-1.pdf"},
+  {"question": "What BLEU score did the Transformer achieve on the WMT 2014 English-to-German translation task?", "expected_source": "attention-is-all-you-need.pdf", "expected_pages": [1, 8]},
+  {"question": "How many attention heads does the base Transformer model use?", "expected_source": "attention-is-all-you-need.pdf", "expected_pages": [5]},
+  {"question": "Why are the dot products scaled by one over the square root of d_k in scaled dot-product attention?", "expected_source": "attention-is-all-you-need.pdf", "expected_pages": [4]},
+  {"question": "What regularization techniques were used when training the Transformer?", "expected_source": "attention-is-all-you-need.pdf", "expected_pages": [8]},
   {"question": "Which file types can be ingested?", "expected_source": "README.md"},
-  {"question": "How are re-ingested files kept from duplicating chunks?", "expected_source": "README.md"}
+  {"question": "How do I start the API server locally?", "expected_source": "README.md"}
 ]
