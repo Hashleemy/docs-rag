@@ -56,6 +56,25 @@ def test_ask_with_empty_index_does_not_call_model(client):
     assert response.json()["sources"] == []
 
 
+def test_delete_source_removes_chunks_and_upload(client, settings):
+    files = [("files", ("notes.md", b"# Notes\nThe ship is the Hispaniola.\n", "text/markdown"))]
+    assert client.post("/api/ingest", files=files).status_code == 200
+    assert client.get("/api/health").json()["chunks"] > 0
+
+    response = client.delete("/api/sources/notes.md")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "notes.md"
+    assert body["chunks_removed"] >= 1
+    assert client.get("/api/health").json()["chunks"] == 0
+    assert client.get("/api/sources").json()["sources"] == []
+    assert not (Path(settings.upload_dir) / "notes.md").exists()
+
+
+def test_delete_unknown_source_returns_404(client):
+    assert client.delete("/api/sources/nothing.md").status_code == 404
+
+
 def test_upload_filename_is_sanitized(client, settings):
     files = [("files", ("../../etc/passwd.md", b"root:x:0:0", "text/markdown"))]
     assert client.post("/api/ingest", files=files).status_code == 200

@@ -13,3 +13,5 @@ button:disabled { opacity: 0.45; cursor: default; }
 .answer { white-space: pre-wrap; font-size: 1.05em; }
 .snippet { opacity: 0.75; font-size: 0.85em; margin: 2px 0 8px; white-space: pre-wrap; }
 .sources { margin: 10px 0 0; padding-left: 18px; }
+button.remove { margin: 0 0 0 8px; padding: 0 7px; font-size: 0.8em; background: transparent; color: inherit; border: 1px solid rgba(128,128,128,0.5); border-radius: 6px; opacity: 0.7; }
+button.remove:hover { opacity: 1; border-color: #dc2626; color: #dc2626; }

@@ -15,7 +15,7 @@ from pathlib import Path
 from app.config import Settings
 from app.evaluate import evaluate
 from app.factory import build_embeddings, build_llm, build_vectorstore, make_describer
-from app.ingest import IMAGE_SUFFIXES, collect_files, ingest_paths
+from app.ingest import IMAGE_SUFFIXES, collect_files, ingest_paths, remove_source
 from app.observability import configure_logging
 from app.rag import RAG
 
@@ -58,6 +58,18 @@ def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_remove(args: argparse.Namespace, settings: Settings) -> int:
+    """Delete every indexed chunk of the named sources (file names, not paths)."""
+    vectorstore = build_vectorstore(settings, build_embeddings(settings))
+    total = 0
+    for source in args.sources:
+        name = Path(source).name
+        removed = remove_source(vectorstore, name)
+        print(f"  {name}: removed {removed} chunk(s)")
+        total += removed
+    return 0 if total else 1
+
+
 def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
     """Rank-aware retrieval eval: hit@1, hit@k and MRR against a golden question set."""
     golden = json.loads(Path(args.golden).read_text(encoding="utf-8"))
@@ -92,6 +104,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("ask", help="ask a question about the indexed documents")
     p.add_argument("question")
     p.set_defaults(func=cmd_ask)
+
+    p = sub.add_parser("remove", help="delete indexed chunks by source file name")
+    p.add_argument("sources", nargs="+")
+    p.set_defaults(func=cmd_remove)
 
     p = sub.add_parser("eval", help="retrieval hit rate against a golden question set")
     p.add_argument("--golden", default="eval/golden.json")

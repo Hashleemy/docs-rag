@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.config import Settings
 from app.factory import build_embeddings, build_llm, build_vectorstore, make_describer
-from app.ingest import ALLOWED_SUFFIXES, ingest_paths
+from app.ingest import ALLOWED_SUFFIXES, ingest_paths, remove_source
 from app.observability import add_request_logging, configure_logging
 from app.rag import RAG
 
@@ -68,6 +68,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         metadatas = vectorstore.get(include=["metadatas"]).get("metadatas") or []
         counts = Counter(str(m.get("source", "?")) for m in metadatas)
         return {"sources": [{"source": s, "chunks": n} for s, n in sorted(counts.items())]}
+
+    @app.delete("/api/sources/{source}")
+    def delete_source(source: str) -> dict:
+        name = safe_filename(source)
+        removed = remove_source(vectorstore, name)
+        upload = upload_dir / name
+        had_upload = upload.exists()
+        upload.unlink(missing_ok=True)
+        if not removed and not had_upload:
+            raise HTTPException(status_code=404, detail=f"unknown source: {name}")
+        log.info("removed", extra={"data": {"file": name, "chunks": removed}})
+        return {"source": name, "chunks_removed": removed}
 
     @app.post("/api/ingest")
     def ingest(files: Annotated[list[UploadFile], File()]) -> dict:

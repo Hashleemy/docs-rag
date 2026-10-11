@@ -47,6 +47,19 @@ export default function App() {
     }
   }
 
+  async function removeSource(name) {
+    setBusy(true)
+    try {
+      await api(`/sources/${encodeURIComponent(name)}`, { method: 'DELETE' })
+      setStatus(`Removed ${name} from the index`)
+      refresh()
+    } catch (error) {
+      setStatus(`Error: ${error.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function ask(event) {
     event.preventDefault()
     if (question.trim().length < 3) return
@@ -93,6 +106,15 @@ export default function App() {
             {sources.map((s) => (
               <li key={s.source}>
                 {s.source} <span className="muted">({s.chunks} chunks)</span>
+                <button
+                  type="button"
+                  className="remove"
+                  title={`Remove ${s.source} from the index`}
+                  disabled={busy}
+                  onClick={() => removeSource(s.source)}
+                >
+                  ✕
+                </button>
               </li>
             ))}
           </ul>
