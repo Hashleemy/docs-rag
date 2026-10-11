@@ -47,10 +47,11 @@ Do not ingest documents you are not allowed to send to a third-party API.
 
 ## Evaluation
 
-`python -m app.cli eval` runs a golden set of questions (`eval/golden.json`) and reports the
-retrieval hit rate: whether the expected document (and page, when given) appears in the top k.
-It fails below 80 %. This measures retrieval only; answer quality is reviewed by hand using the
-citations.
+`python -m app.cli eval` runs a golden set of questions (`eval/golden.json`) and reports
+rank-aware retrieval metrics: hit@1, hit@k, and MRR, with page-level relevance for PDF
+questions. It fails below 80 % hit@k. Retrieval is hybrid (local vectors + BM25, fused with
+reciprocal rank fusion); the measured comparison against dense-only retrieval is in the README.
+This measures retrieval only; answer quality is reviewed by hand using the citations.
 
 ## Known limitations
 

@@ -5,6 +5,9 @@ A small, complete retrieval-augmented generation (RAG) application:
 
 - **Ingestion pipeline** for PDF, Markdown, text, **and images** (described by a vision model),
   chunked with LangChain and stored in a **Chroma** vector database with local embeddings.
+- **Hybrid retrieval**: dense vectors + BM25 (both implemented locally, no extra services),
+  merged with Reciprocal Rank Fusion. Measured on the golden set: hit@5 86% → 100% over
+  dense-only, for +0.9 ms per query.
 - **RAG chain** (LangChain Expression Language) over **Claude**, with numbered citations and a
   prompt that treats document text as untrusted.
 - **FastAPI** service with JSON logging, latency and token usage on every answer.
@@ -17,7 +20,7 @@ A small, complete retrieval-augmented generation (RAG) application:
             ┌──────────────┐    upload     ┌────────────────────────────────────────┐
   browser ─▶│ React (Vite) │──────────────▶│ FastAPI                                 │
             └──────────────┘    ask        │  /api/ingest ─▶ load ─▶ split ─▶ embed ─┼─▶ Chroma
-                                           │  /api/ask    ─▶ retrieve top-k ─▶ Claude ┼─▶ answer + citations
+                                           │  /api/ask ─▶ retrieve (vectors+BM25, RRF) ─▶ Claude ┼─▶ answer + citations
                                            └────────────────────────────────────────┘
                                                    images ─▶ Claude vision ─▶ text ─▶ embed
 ```
@@ -51,6 +54,7 @@ to the FastAPI process on port 8000.
 |---|---|---|---|
 | GET | `/api/health` | | status, model, embedding model, chunk count |
 | GET | `/api/sources` | | indexed files and chunk counts |
+| DELETE | `/api/sources/{source}` | | removes a file's chunks from the index (and its stored upload) |
 | POST | `/api/ingest` | multipart `files[]` (pdf, md, txt, png, jpg, jpeg, webp, gif) | files indexed, skipped, chunk count |
 | POST | `/api/ask` | `{"question": "..."}` | answer, numbered sources (file, page, score, snippet), token usage, model, latency |
 
@@ -63,7 +67,13 @@ to the FastAPI process on port 8000.
 3. **Embed and store.** `bge-small-en-v1.5` (local, free) vectors in Chroma with cosine distance.
    Chunk ids are a hash of file, page, chunk number and content, and a file's old chunks are
    deleted before it is re-ingested, so re-ingesting never duplicates.
-4. **Retrieve and answer.** Top-k chunks are numbered and placed in the prompt; Claude answers with
+4. **Retrieve.** Hybrid search (`app/retrieval.py`): cosine similarity over the vectors *and*
+   BM25 over the same chunks (an in-memory inverted index rebuilt from Chroma on every
+   ingest/delete, so the vector store stays the single source of truth). The two rankings are
+   merged with Reciprocal Rank Fusion — `score(d) = Σ 1/(60 + rank)` — which needs no score
+   calibration between the legs. Dense understands paraphrase; BM25 catches exact terms and
+   acronyms ("CBRN", "BLEU"); fusion gets both. `HYBRID=false` falls back to dense-only.
+5. **Answer.** Top-k chunks are numbered and placed in the prompt; Claude answers with
    `[n]` citations and is told the excerpts are untrusted data. The response includes the
    excerpts, their scores, the model's token usage and the latency.
 
@@ -73,8 +83,31 @@ to the FastAPI process on port 8000.
 uv run python -m app.cli eval --golden eval/golden.json
 ```
 
-Prints HIT/MISS per question and the retrieval hit rate at k; exits non-zero below 80 %.
-Edit `eval/golden.json` to match your own documents.
+Rank-aware retrieval eval against a golden question set: prints the rank of the first relevant
+chunk per question, then hit@1, hit@k and MRR (mean reciprocal rank); exits non-zero below 80 %
+hit@k. Relevance is page-level for PDF questions (`expected_pages`), file-level otherwise.
+Edit `eval/golden.json` to match your own documents — write the questions from memory, not by
+copying chunk text, or the hit rate measures string matching instead of retrieval.
+
+### Eval results
+
+14 questions over the NIST AI RMF, the NIST Generative AI Profile, the Transformer paper
+("Attention Is All You Need") and this README; page-level relevance; k = 5;
+`bge-small-en-v1.5` embeddings; chunk size 800 / overlap 120. Retrieval latency measured
+per query on an M-series CPU, excluding model load.
+
+| Configuration | hit@1 | hit@5 | MRR | ms/query |
+|---|---|---|---|---|
+| Dense only (`HYBRID=false`) | 71 % | 86 % | 0.79 | 3.5 |
+| Hybrid, fusion depth 20 | 71 % | 93 % | 0.79 | — |
+| Hybrid, fusion depth 50 (default) | 71 % | 100 % | 0.83 | 4.4 |
+
+The two dense-only misses were exact-phrase questions ("intended audience", "unique to or
+exacerbated by") where BM25 wins; both hit after fusion. Fusion depth matters: with a
+20-candidate pool per leg, one question regressed because a dense rank-2 chunk missed the
+BM25 pool and lost fusion points — at the literature-standard depth of 50 it recovered.
+Every dense miss was audited by hand first to separate labeling errors from retrieval
+failures; two golden labels were corrected before any retrieval change was made.
 
 ## Docker
 
@@ -105,8 +138,8 @@ is published to GitHub Container Registry as `ghcr.io/<owner>/docs-rag`.
 ## Configuration
 
 All settings live in `app/config.py` and can be overridden by environment variables or `.env`:
-`LLM_MODEL`, `EMBEDDING_MODEL`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `TOP_K`, `MAX_UPLOAD_MB`,
-`CHROMA_DIR`, `UPLOAD_DIR`, `FAKE_LLM`.
+`LLM_MODEL`, `EMBEDDING_MODEL`, `CHUNK_SIZE`, `CHUNK_OVERLAP`, `TOP_K`, `HYBRID`, `RRF_K`,
+`MAX_UPLOAD_MB`, `CHROMA_DIR`, `UPLOAD_DIR`, `FAKE_LLM`.
 
 ## Governance
 
@@ -115,7 +148,7 @@ observability, evaluation, known limitations.
 
 ## Roadmap
 
-- Hybrid search (BM25 + vectors) and a reranker
+- A cross-encoder reranker on top of hybrid retrieval
 - Streaming answers to the UI
 - OCR for scanned PDFs
 - Authentication in front of the API
